@@ -1,0 +1,91 @@
+# Hala voice agent — model & service configuration.
+# Single source of truth for model IDs, voices and tunable timeouts used
+# across src/agent.py, src/agent_tools.py and src/staff_agent.py. Loaded once
+# by src/config.py.
+#
+# Everything generative runs on OpenAI with OPENAI_API_KEY. Speech-to-text,
+# turn detection and noise cancellation are the same services Balagh uses.
+#
+# Env overrides (quick ops tuning without editing this file):
+#   BACKEND_BASE_URL, HALA_LLM_MODEL, HALA_TTS_PROVIDER,
+#   HALA_EXTRACT_MODEL, HALA_EXTRACT_TIMEOUT
+
+agent:
+  # Must match the agent_name the backend puts in the token's agent dispatch
+  # (see POST /api/voice/session in docs/API_CONTRACT.md).
+  name: hala-agent
+  # Used only when a session starts with no dispatch metadata (console mode).
+  default_prisoner_id: PR-0001
+
+backend:
+  # The mock backend. Point this (or BACKEND_BASE_URL) at the real backend.
+  base_url: http://localhost:8000
+  timeout_s: 6
+
+llm:
+  # Main conversation model (livekit-plugins-openai, OPENAI_API_KEY).
+  model: gpt-4.1
+  temperature: 0.3
+
+stt:
+  provider: speechmatics
+  language: ar
+  include_partials: true
+
+tts:
+  # openai   -> the `main` / `urgent` blocks below (OPENAI_API_KEY)
+  # cartesia -> the `cartesia` block below, via LiveKit Inference (what
+  #             Balagh runs today). Fallback if the OpenAI voice does not
+  #             sound right in Saudi Arabic; no code change needed.
+  provider: openai
+  main:
+    model: gpt-4o-mini-tts
+    voice: marin
+    instructions: >-
+      Speak in Arabic with a natural Saudi (Najdi-leaning, white dialect)
+      accent, in a warm, calm, respectful and professional tone suited to a
+      government service assistant talking to an inmate. Moderate pace, clear
+      articulation.
+  urgent:
+    model: gpt-4o-mini-tts
+    voice: coral
+    instructions: >-
+      Speak in Arabic with a natural Saudi accent, slightly faster, in a calm,
+      clear and reassuring tone that carries seriousness and urgency because
+      this may be an emergency.
+  cartesia:
+    model: cartesia/sonic-3
+    voice: 9626c31c-bec5-4cca-baa8-f8ba9e84c8bc
+    language: ar
+
+tts_retry:
+  # Exponential backoff for TTS connection errors / 429s
+  # (base_interval_s * 2**attempt), wired into AgentSession's
+  # tts_conn_options exactly as in Balagh.
+  max_retry: 4
+  base_interval_s: 1.0
+
+noise_cancellation:
+  # Set to false if the agent lags: on a slow CPU it can block the agent loop
+  # for 120-400 ms at a time and starve VAD / turn detection.
+  enabled: true
+  provider: ai-coustics
+  model: QUAIL_VF_S
+
+extraction:
+  # Safety-net extraction of complaint fields from the transcript, run once
+  # before review (agent_tools.flush_draft_from_transcript).
+  model: gpt-4.1-mini
+  timeout_s: 4
+
+classification:
+  # Second-opinion classifier: picks one of the routing subcategories for the
+  # complaint and returns a confidence (stored as ai_confidence).
+  model: gpt-4.1-mini
+  timeout_s: 4
+  # Below this confidence, or when it disagrees with the conversation model,
+  # the classification is flagged "needs confirmation" on the review screen.
+  min_confidence: 0.6
+  retry:
+    max_retry: 2
+    base_interval_s: 0.5

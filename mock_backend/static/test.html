@@ -1,0 +1,384 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>هلا — صفحة اختبار المساعد الصوتي</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/livekit-client@2/dist/livekit-client.umd.min.js"></script>
+<style>
+/* Palette and block styles are taken from PP_AI_Assistant_Demo6 so the test
+   page reads like the kiosk. */
+:root{
+  --teal:#157C79; --teal-dark:#0F5F5C; --ink:#152726; --teal-light:#E4F0EF;
+  --bg:#F3F6F5; --panel:#F0F7F6; --white:#fff; --line:#E4E8E7; --line2:#E4F0EF;
+  --muted:#5E716E; --muted2:#93A19E; --red:#C00F0C; --amber:#8F754F; --cream:#F4EDE2;
+  --shadow:0 6px 11px rgba(16,60,58,.07),0 2px 3px rgba(16,60,58,.04);
+  --shadow-sm:0 2px 2px rgba(16,60,58,.05);
+}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%}
+body{font-family:"IBM Plex Sans Arabic",system-ui,"Segoe UI",Tahoma,sans-serif;background:var(--bg);color:var(--ink);
+  display:flex;flex-direction:column;height:100dvh}
+button,select,input{font-family:inherit}
+
+.nav{flex:0 0 auto;background:var(--white);border-bottom:1px solid var(--line);padding:10px 18px;
+  display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.brand{font-weight:700;font-size:18px;color:var(--teal-dark);margin-inline-end:auto;display:flex;align-items:baseline;gap:8px}
+.brand small{font-size:12px;font-weight:500;color:var(--muted)}
+select,.seg{height:40px;border-radius:12px;border:1px solid var(--line);background:var(--white);font-size:14px;color:var(--ink)}
+select{padding:0 12px;max-width:300px}
+.seg{display:inline-flex;overflow:hidden;padding:0}
+.seg button{border:0;background:none;padding:0 14px;font-size:14px;font-weight:600;color:var(--muted);cursor:pointer}
+.seg button.on{background:var(--teal-light);color:var(--teal-dark)}
+.btn{height:40px;border-radius:12px;border:1px solid transparent;font-size:14px;font-weight:700;cursor:pointer;padding:0 16px}
+.btn.primary{background:var(--teal);color:#fff}
+.btn.danger{background:var(--white);color:var(--red);border-color:#f0c9c8}
+.btn:disabled{opacity:.5;cursor:default}
+
+.body{flex:1 1 auto;min-height:0;display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:14px;padding:14px 18px}
+.col{background:var(--white);border:1px solid var(--line);border-radius:18px;box-shadow:var(--shadow-sm);
+  display:flex;flex-direction:column;min-height:0;overflow:hidden}
+.colhead{flex:0 0 auto;display:flex;align-items:center;justify-content:space-between;gap:10px;padding:12px 16px;
+  border-bottom:1px solid var(--line);font-size:13px;font-weight:700;color:var(--teal-dark)}
+.scroll{flex:1 1 auto;overflow-y:auto;padding:16px}
+
+.badge{display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:600;padding:5px 11px;border-radius:999px;white-space:nowrap}
+.badge .bd{width:7px;height:7px;border-radius:50%}
+.badge.red{background:#fbecec;color:var(--red)} .badge.red .bd{background:var(--red)}
+.badge.green{background:#e5f3ef;color:#127a4e} .badge.green .bd{background:#127a4e}
+.badge.amber{background:#fbf1e3;color:#9a6a1e} .badge.amber .bd{background:#9a6a1e}
+.badge.teal{background:var(--teal-light);color:var(--teal-dark)} .badge.teal .bd{background:var(--teal-dark)}
+.badge.gray{background:#eef1f0;color:var(--muted)} .badge.gray .bd{background:var(--muted2)}
+
+/* conversation */
+.msg{display:flex;margin:0 0 10px}
+.msg .b{max-width:82%;padding:11px 15px;font-size:15px;line-height:1.7;border:1px solid var(--line)}
+.msg.agent .b{background:var(--white);border-radius:20px 6px 20px 20px;box-shadow:var(--shadow-sm)}
+.msg.user{justify-content:flex-end}
+.msg.user .b{background:var(--teal-light);border-color:var(--line2);border-radius:6px 20px 20px 20px;color:var(--teal-dark)}
+.msg.interim .b{opacity:.6}
+.msg.sys{justify-content:center}
+.msg.sys .b{background:var(--panel);border-color:var(--line2);border-radius:999px;font-size:12px;color:var(--muted);padding:5px 14px}
+.composer{flex:0 0 auto;display:flex;gap:10px;padding:12px 16px;border-top:1px solid var(--line)}
+.composer input{flex:1;height:46px;border-radius:14px;border:1.5px solid var(--line);padding:0 14px;font-size:15px;outline:none}
+.composer input:focus{border-color:var(--teal)}
+.empty{color:var(--muted2);font-size:14px;text-align:center;line-height:1.9;padding:40px 20px}
+
+/* device panel */
+.h1{font-size:20px;font-weight:700;margin:0 0 12px;line-height:1.4}
+.sub{font-size:13.5px;color:var(--muted);margin:-6px 0 12px;line-height:1.6}
+.classify{background:var(--panel);border:1px solid var(--line2);border-radius:16px;padding:12px 14px;margin-bottom:12px}
+.cl-lbl{font-size:12.5px;color:var(--muted);margin-bottom:8px}
+.cl-tags{display:flex;gap:8px;flex-wrap:wrap}
+.cl-main{background:var(--teal);color:#fff;font-size:14px;font-weight:700;padding:7px 14px;border-radius:999px}
+.cl-sub{background:var(--teal-light);color:var(--teal-dark);font-size:13px;font-weight:600;padding:7px 14px;border-radius:999px}
+.fields{display:flex;flex-direction:column;gap:10px}
+.field{position:relative;background:var(--white);border:1px solid var(--line);border-inline-start:4px solid var(--teal);
+  border-radius:16px;padding:12px 48px 12px 14px;box-shadow:var(--shadow-sm)}
+.field.ask{border-inline-start-color:var(--amber)}
+.field.empty-f{border-inline-start-color:var(--line);box-shadow:none}
+.field .fnum{position:absolute;top:12px;inset-inline-start:12px;width:26px;height:26px;border-radius:50%;background:var(--teal-light);
+  color:var(--teal-dark);font-size:13px;font-weight:700;display:flex;align-items:center;justify-content:center}
+.field .flab{font-size:12.5px;color:var(--muted)}
+.field .fval{font-size:15px;font-weight:700;line-height:1.55;margin-top:3px}
+.field.empty-f .fval{color:var(--muted2);font-weight:500}
+.fstat{display:inline-flex;font-size:12px;font-weight:600;margin-top:7px;padding:3px 10px;border-radius:999px}
+.fstat.ok{background:var(--teal-light);color:var(--teal-dark)}
+.fstat.ask{background:#fbf1e3;color:#9a6a1e}
+.refbox{border:2px dashed var(--teal-light);border-radius:18px;padding:16px;text-align:center;margin:0 0 12px}
+.refbox .rl{font-size:13px;color:var(--muted);margin-bottom:6px}
+.refbox .rn{font-size:34px;font-weight:700;color:var(--teal-dark);direction:ltr;letter-spacing:1px}
+.scard{background:var(--white);border:1px solid var(--line);border-radius:18px;padding:14px;box-shadow:var(--shadow-sm);margin-bottom:12px}
+.srow{display:flex;gap:8px;font-size:13.5px;line-height:1.6;padding:4px 0}
+.srow .sl{color:var(--muted);flex:0 0 auto;min-width:104px}
+.srow .sv{font-weight:600;unicode-bidi:plaintext}
+.lgh{font-size:13px;font-weight:700;color:var(--muted);margin:14px 2px 8px}
+.litem{display:flex;align-items:center;gap:10px;background:var(--white);border:1px solid var(--line);border-radius:14px;padding:11px 12px;margin-bottom:8px}
+.litem .lbody{flex:1 1 auto;min-width:0}
+.litem .lcode{font-weight:700;font-size:13px;color:var(--teal-dark);direction:ltr;display:inline-block}
+.litem .lt{font-size:14px;font-weight:600;margin-inline-start:8px}
+.litem .ld{font-size:12px;color:var(--muted);margin-top:3px;line-height:1.5}
+.tl{display:flex;gap:12px}
+.tl .tlline{flex:0 0 auto;display:flex;flex-direction:column;align-items:center}
+.tl .tldot{width:26px;height:26px;border-radius:50%;background:var(--teal);color:#fff;font-size:12px;font-weight:700;display:flex;align-items:center;justify-content:center}
+.tl .tlbar{width:2px;flex:1 1 auto;background:var(--teal);min-height:14px;margin:2px 0}
+.tl:last-child .tlbar{display:none}
+.tl .tlt{font-size:14px;font-weight:700}
+.tl .tls{font-size:12.5px;color:var(--muted);margin:2px 0 10px;line-height:1.5}
+.artcard{background:#fff;border:1px solid var(--line);border-radius:18px;padding:16px;box-shadow:var(--shadow-sm);margin-bottom:10px}
+.artcard .at{font-size:16px;font-weight:700;margin-bottom:8px}
+.artcard p{font-size:14px;line-height:1.9;margin:0 0 8px}
+.artcard li{font-size:13.5px;line-height:1.8}
+.artcard .asrc{font-size:12px;color:var(--muted2);border-top:1px solid var(--line);padding-top:8px;margin-top:8px}
+.rnote{border-radius:12px;padding:11px 13px;font-size:13px;line-height:1.6;margin-bottom:12px}
+.rnote.red{background:#fbecec;color:#7a2320}
+.rnote.gray{background:var(--panel);color:var(--muted)}
+
+/* debug log */
+.log{flex:0 0 190px;border-top:1px solid var(--line);background:#fbfcfc;overflow-y:auto;padding:8px 12px;
+  font-family:ui-monospace,Consolas,monospace;font-size:11.5px;line-height:1.75;direction:ltr;text-align:left}
+.log div{white-space:nowrap}
+.log .t{color:var(--muted2)} .log .k{color:var(--teal-dark);font-weight:700} .log .e{color:var(--red)}
+@media (max-width:900px){.body{grid-template-columns:1fr;overflow-y:auto}.col{min-height:60vh}}
+</style>
+</head>
+<body>
+<div class="nav">
+  <div class="brand">هلا <small>صفحة اختبار المساعد — ليست واجهة الجهاز النهائية</small></div>
+  <select id="inmate" aria-label="النزيل"></select>
+  <div class="seg" role="group" aria-label="طريقة التواصل">
+    <button id="modeVoice" class="on">صوت وكتابة</button>
+    <button id="modeText">كتابة فقط</button>
+  </div>
+  <span class="badge gray" id="conn"><span class="bd"></span><span id="connTx">غير متصل</span></span>
+  <button class="btn primary" id="start">بدء الجلسة</button>
+  <button class="btn danger" id="end" disabled>إنهاء الجلسة</button>
+</div>
+
+<div class="body">
+  <div class="col">
+    <div class="colhead"><span>المحادثة</span><span class="badge gray" id="agentState"><span class="bd"></span><span id="agentStateTx">—</span></span></div>
+    <div class="scroll" id="chat"><div class="empty">اختر نزيلًا واضغط «بدء الجلسة».<br>تكلّم مع المساعد، أو اكتب رسالتك في الأسفل في أي وقت.</div></div>
+    <div class="composer">
+      <input id="text" placeholder="اكتب رسالتك هنا…" disabled autocomplete="off">
+      <button class="btn primary" id="send" disabled>إرسال</button>
+    </div>
+  </div>
+
+  <div class="col">
+    <div class="colhead"><span>ما يعرضه الجهاز (بحسب أحداث المساعد)</span><span class="badge teal" id="stage"><span class="bd"></span><span id="stageTx">—</span></span></div>
+    <div class="scroll" id="device"><div class="empty">ستظهر هنا حقول الشكوى، رقمها بعد الإرسال، حالة الشكاوى والطلبات، ونتائج دليل الحقوق.</div></div>
+    <div class="log" id="log" aria-label="سجل الأحداث"></div>
+  </div>
+</div>
+
+<script>
+const { Room, RoomEvent, Track, ParticipantKind } = LivekitClient;
+const $ = id => document.getElementById(id);
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+
+const UI_TOPIC = 'hala.ui', CHAT_TOPIC = 'lk.chat', TRANSCRIPTION_TOPIC = 'lk.transcription';
+const STAGES = {concierge:'الاستقبال', complaint:'تسجيل الشكوى', review:'مراجعة الشكوى', tracking:'المتابعة', info:'الحقوق والقضية', staff:'طلب موظف'};
+const AGENT_STATES = {initializing:'يجهّز…', listening:'يستمع', thinking:'يفكّر', speaking:'يتكلّم', idle:'جاهز'};
+
+let room = null, mode = 'voice';
+const segments = new Map();   // transcription segment id -> message element
+
+/* ---------------- log ---------------- */
+function log(kind, text, isError) {
+  const el = document.createElement('div');
+  const t = new Date().toLocaleTimeString('en-GB');
+  el.innerHTML = `<span class="t">${t}</span> <span class="${isError ? 'e' : 'k'}">${esc(kind)}</span> ${esc(text)}`;
+  $('log').appendChild(el); $('log').scrollTop = $('log').scrollHeight;
+}
+
+/* ---------------- conversation ---------------- */
+function addMsg(who, text, id) {
+  const chat = $('chat');
+  if (chat.querySelector('.empty')) chat.innerHTML = '';
+  let el = id ? segments.get(id) : null;
+  if (!el) {
+    el = document.createElement('div');
+    el.className = 'msg ' + who;
+    el.innerHTML = '<div class="b"></div>';
+    chat.appendChild(el);
+    if (id) segments.set(id, el);
+  }
+  el.firstChild.textContent = text;
+  chat.scrollTop = chat.scrollHeight;
+  return el;
+}
+
+/* ---------------- device panel renderers ---------------- */
+const statusColor = s => ({'مغلقة':'gray','تم الرد':'green','مقبول':'green','مرفوض':'red','قيد الدراسة':'amber','قيد المعالجة':'amber','بانتظار معلومات':'amber','محالة':'teal'}[s] || 'teal');
+const badge = s => `<span class="badge ${statusColor(s)}"><span class="bd"></span>${esc(s)}</span>`;
+const row = (l, v) => v ? `<div class="srow"><span class="sl">${esc(l)}</span><span class="sv">${esc(v)}</span></div>` : '';
+
+function renderFields(fields) {
+  const cat = fields.find(f => f.key === 'category'), sub = fields.find(f => f.key === 'subcategory');
+  const tags = (cat && cat.value) ? `<div class="classify"><div class="cl-lbl">تصنيف الشكوى (حُدِّد تلقائيًا)</div>
+    <div class="cl-tags"><span class="cl-main">${esc(cat.value)}</span>${sub && sub.value ? `<span class="cl-sub">${esc(sub.value)}</span>` : ''}</div></div>` : '';
+  return tags + `<div class="fields">` + fields.map(f => `
+    <div class="field ${f.status === 'ask' ? 'ask' : ''} ${f.status === 'empty' ? 'empty-f' : ''}">
+      <span class="fnum">${f.num}</span>
+      <div class="flab">${esc(f.label)}</div>
+      <div class="fval">${f.value ? esc(f.value) : 'لم يُذكر بعد'}</div>
+      ${f.status === 'empty' ? '' : `<span class="fstat ${f.status === 'ask' ? 'ask' : 'ok'}">${f.status === 'ask' ? '؟ يحتاج تأكيد' : '✓ مؤكّد'}</span>`}
+    </div>`).join('') + `</div>`;
+}
+
+const RENDER = {
+  draft_updated(p) {
+    if (p.stage === 'cancelled') return `<div class="rnote gray">أُلغيت الشكوى ولم يُرسل شيء.</div>`;
+    const title = p.stage === 'review' ? 'راجِع شكواك قبل الإرسال' : 'أسجّل تفاصيل شكواك…';
+    return `<div class="h1">${title}</div>` + renderFields(p.fields);
+  },
+  complaint_submitted(p) {
+    return `<div class="h1">تم رفع شكواك</div>
+      <div class="refbox"><div class="rl">رقم الشكوى</div><div class="rn">${esc(p.complaint_id)}</div></div>
+      <div class="scard">${row('التصنيف', [p.category_name_ar, p.subcategory_name_ar].filter(Boolean).join(' — '))}
+        ${row('الجهة المعالِجة', p.is_confidential ? 'جهة مختصة (سرّي)' : p.handling_authority)}
+        ${row('مدة الرد المتوقعة', p.sla_days + ' يوم')}${row('الحالة', p.complaint_status)}
+        ${row('عاجلة', p.is_urgent ? 'نعم' : '')}${row('سرّية', p.is_confidential ? 'نعم' : '')}</div>`
+      + renderFields(p.fields || []);
+  },
+  tracking_list(p) {
+    const item = (code, title, date, st) => `<div class="litem"><div class="lbody"><div><span class="lcode">${esc(code)}</span><span class="lt">${esc(title)}</span></div>
+      <div class="ld">${esc(date)}</div></div>${badge(st)}</div>`;
+    return `<div class="h1">شكاواك وطلباتك</div>
+      <div class="lgh">الشكاوى (${p.complaints.length})</div>` +
+      (p.complaints.map(c => item(c.complaint_id, c.complaint_title || c.subcategory_name_ar || c.complaint_subcategory, c.complaint_summary + ' · قُدّمت في ' + c.submission_date, c.complaint_status)).join('') || '<div class="sub">لا يوجد</div>') +
+      `<div class="lgh">الطلبات (${p.requests.length})</div>` +
+      (p.requests.map(r => item(r.request_id, 'طلب ' + r.request_type, r.request_summary + ' · قُدّم في ' + r.submission_date, r.current_status)).join('') || '<div class="sub">لا يوجد</div>');
+  },
+  tracking_detail(p) {
+    const i = p.item;
+    if (p.kind === 'request') {
+      return `<div class="h1">طلب ${esc(i.request_type)} <span style="direction:ltr;display:inline-block">${esc(i.request_id)}</span></div>
+        <div style="margin-bottom:12px">${badge(i.current_status)}</div>
+        <div class="scard">${row('الطلب', i.request_summary)}${row('تاريخ التقديم', i.submission_date)}${row('تاريخ القرار', i.decision_date)}${row('السبب', i.decision_reason)}</div>`;
+    }
+    return `<div class="h1">حالة الشكوى <span style="direction:ltr;display:inline-block">${esc(i.complaint_id)}</span></div>
+      <div style="margin-bottom:12px">${badge(i.complaint_status)}</div>
+      <div class="scard">${row('الموضوع', i.complaint_summary)}${row('تاريخ التقديم', i.submission_date)}${row('آخر تحديث', i.last_update_date)}
+        ${row('الجهة المعالِجة', i.is_confidential === 'نعم' ? 'جهة مختصة (سرّي)' : i.handling_authority)}${row('الرد', i.response_to_prisoner)}${row('الخطوة القادمة', i.next_action)}</div>
+      <div>${(i.timeline || []).map((s, n) => `<div class="tl"><div class="tlline"><div class="tldot">${n + 1}</div><div class="tlbar"></div></div>
+        <div><div class="tlt">${esc(s.action_type)}</div><div class="tls">${esc(s.description)} · ${esc(s.action_date)}</div></div></div>`).join('')}</div>
+      <div class="rnote gray">تُعرض المعلومات المصرّح للنزيل بالاطلاع عليها فقط.</div>`;
+  },
+  rights_results(p) {
+    if (!p.topics.length) return `<div class="h1">دليل الحقوق</div><div class="rnote gray">لا توجد نتيجة مطابقة لـ «${esc(p.query)}».</div>`;
+    return `<div class="h1">دليل الحقوق</div><div class="sub">البحث: ${esc(p.query)}</div>` + p.topics.map(t => `<div class="artcard"><div class="at">${esc(t.title)}</div>
+      ${t.article ? `<p>${esc(t.article.lead)}</p><ul>${t.article.bullets.map(b => `<li>${esc(b)}</li>`).join('')}</ul><div class="asrc">المصدر: ${esc(t.source)}</div>`
+                  : `<p>${esc(t.summary)}</p><div class="asrc">لا يوجد نص تفصيلي معتمد لهذا الموضوع بعد.</div>`}</div>`).join('');
+  },
+  case_status(p) {
+    return `<div class="h1">حالة القضية</div>` + p.cases.map(c => `<div class="scard">
+      ${row('رقم القضية', c.case_number)}${row('الحالة', c.case_status)}${row('المرحلة', c.current_stage)}${row('الجهة الحالية', c.current_authority)}
+      ${row('آخر إجراء', c.current_procedure && c.current_procedure.last_registered_action)}${row('الخطوة القادمة', c.current_procedure && c.current_procedure.prisoner_facing_next_step)}
+      ${row('الجلسة القادمة', c.next_session_date)}${row('آخر تحديث', c.last_update_date)}</div>`).join('');
+  },
+  staff_requested(p) {
+    return `<div class="h1">تم طلب موظف</div>
+      ${p.urgent ? '<div class="rnote red"><b>حالة عاجلة</b> — أُبلغ الموظف المناوب فورًا.</div>' : ''}
+      <div class="scard">${row('رقم الطلب', p.assistance_id)}${row('الحالة', p.status)}${row('السبب', p.reason)}${row('الانتظار المتوقع', p.estimated_wait_minutes + ' دقيقة')}</div>`;
+  },
+  error(p) {
+    return `<div class="rnote red">تعذّر بدء المساعد: الخادم الخلفي غير متاح (${esc(p.message)}).</div>`;
+  },
+};
+
+function onUiEvent(ev) {
+  const p = ev.payload || {};
+  if (ev.type === 'backend_call') { log('backend', `${p.method} ${p.path} -> ${p.status} (${p.ms} ms)`, !(p.status >= 200 && p.status < 300)); return; }
+  if (ev.type === 'agent_changed') { $('stageTx').textContent = STAGES[p.agent] || p.agent; log('handoff', p.agent); addMsg('sys', '← ' + (STAGES[p.agent] || p.agent)); return; }
+  if (ev.type === 'session_started') { log('session', `${p.inmate.prisoner_id} mode=${p.input_mode}`); return; }
+  if (ev.type === 'session_ended') { log('session', 'agent asked to end the session'); addMsg('sys', 'أنهى المساعد الجلسة'); setTimeout(endSession, 6000); return; }
+  log('ui', ev.type);
+  if (RENDER[ev.type]) { $('device').innerHTML = RENDER[ev.type](p); $('device').scrollTop = 0; }
+}
+
+/* ---------------- session ---------------- */
+function setConn(text, color) { $('conn').className = 'badge ' + color; $('connTx').textContent = text; }
+function setControls(on) {
+  $('start').disabled = on; $('end').disabled = !on; $('inmate').disabled = on;
+  $('text').disabled = !on; $('send').disabled = !on;
+}
+function agentParticipant() {
+  return [...room.remoteParticipants.values()].find(p => p.kind === ParticipantKind.AGENT || p.identity.startsWith('agent'));
+}
+
+async function startSession() {
+  setConn('جارٍ الاتصال…', 'amber'); $('start').disabled = true;
+  try {
+    const resp = await fetch('/api/voice/session', {method: 'POST', headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({prisoner_id: $('inmate').value, input_mode: mode})});
+    if (!resp.ok) throw new Error((await resp.json()).detail || resp.statusText);
+    const s = await resp.json();
+    log('session', 'room ' + s.room_name);
+
+    room = new Room();
+    segments.clear(); $('chat').innerHTML = ''; $('device').innerHTML = '<div class="empty">بانتظار المساعد…</div>';
+
+    room.on(RoomEvent.TrackSubscribed, track => {
+      if (track.kind === Track.Kind.Audio) { const el = track.attach(); el.dataset.agentAudio = '1'; document.body.appendChild(el); }
+    });
+    room.on(RoomEvent.TrackUnsubscribed, track => track.detach().forEach(el => el.remove()));
+    room.on(RoomEvent.DataReceived, (payload, participant, kind, topic) => {
+      if (topic !== UI_TOPIC) return;
+      try { onUiEvent(JSON.parse(new TextDecoder().decode(payload))); } catch (e) { log('ui', 'bad event: ' + e, true); }
+    });
+    room.on(RoomEvent.ParticipantAttributesChanged, (changed, participant) => {
+      if (changed['lk.agent.state']) $('agentStateTx').textContent = AGENT_STATES[changed['lk.agent.state']] || changed['lk.agent.state'];
+    });
+    room.on(RoomEvent.ParticipantConnected, p => log('room', 'joined: ' + p.identity));
+    room.on(RoomEvent.Disconnected, () => { log('room', 'disconnected'); cleanup(); });
+
+    // Agent speech and the inmate's recognised speech both arrive as text streams
+    room.registerTextStreamHandler(TRANSCRIPTION_TOPIC, async (reader, participantInfo) => {
+      const attrs = reader.info.attributes || {};
+      const id = attrs['lk.segment_id'] || reader.info.id;
+      const mine = participantInfo.identity === room.localParticipant.identity;
+      let text = '';
+      for await (const chunk of reader) {
+        text += chunk;
+        const el = addMsg(mine ? 'user' : 'agent', text, id);
+        el.classList.toggle('interim', mine && attrs['lk.transcription_final'] !== 'true');
+      }
+    });
+
+    await room.connect(s.server_url, s.participant_token);
+    if (mode === 'voice') await room.localParticipant.setMicrophoneEnabled(true);
+    setConn('متصل', 'green'); setControls(true); $('text').focus();
+  } catch (e) {
+    log('error', String(e.message || e), true);
+    setConn('فشل الاتصال', 'red'); cleanup();
+  }
+}
+
+function cleanup() {
+  document.querySelectorAll('[data-agent-audio]').forEach(el => el.remove());
+  room = null; setControls(false);
+  if ($('connTx').textContent === 'متصل') setConn('غير متصل', 'gray');
+  $('agentStateTx').textContent = '—'; $('stageTx').textContent = '—';
+}
+async function endSession() { if (room) await room.disconnect(); }
+
+async function sendText() {
+  const text = $('text').value.trim();
+  if (!text || !room) return;
+  $('text').value = '';
+  addMsg('user', text);
+  try { await room.localParticipant.sendText(text, {topic: CHAT_TOPIC}); }
+  catch (e) { log('error', 'send failed: ' + e, true); }
+}
+
+async function setMode(next) {
+  mode = next;
+  $('modeVoice').classList.toggle('on', mode === 'voice'); $('modeText').classList.toggle('on', mode === 'text');
+  if (!room) return;
+  try {
+    await room.localParticipant.setMicrophoneEnabled(mode === 'voice');
+    const agent = agentParticipant();
+    if (agent) await room.localParticipant.performRpc({destinationIdentity: agent.identity, method: 'hala.set_mode', payload: JSON.stringify({input_mode: mode})});
+    log('mode', mode); addMsg('sys', mode === 'text' ? 'كتابة فقط — بدون صوت' : 'صوت وكتابة');
+  } catch (e) { log('error', 'mode switch failed: ' + e, true); }
+}
+
+/* ---------------- wiring ---------------- */
+$('start').onclick = startSession;
+$('end').onclick = endSession;
+$('send').onclick = sendText;
+$('text').addEventListener('keydown', e => { if (e.key === 'Enter') sendText(); });
+$('modeVoice').onclick = () => setMode('voice');
+$('modeText').onclick = () => setMode('text');
+
+fetch('/api/mock/prisoners').then(r => r.json()).then(d => {
+  $('inmate').innerHTML = d.items.map(p => `<option value="${esc(p.prisoner_id)}">${esc(p.prisoner_id)} — ${esc(p.full_name_ar)} (${esc(p.preferred_language)})</option>`).join('');
+}).catch(e => log('error', 'could not load inmates: ' + e, true));
+</script>
+</body>
+</html>
